@@ -11,101 +11,18 @@ using namespace std;
 BackupEngine::BackupEngine(const string& token, const string& sasUrl)
     : src(token), dest(sasUrl) {}
 
-
-// void BackupEngine::start()
-// {
-//     LOG_INFO("BackupEngine started");
- 
-//     meta_data_record.loadFile("metadata.json");
- 
-//     LOG_INFO("Fetching files from OneDrive");
- 
-//     auto files = src.listFilesRecursivefromOneDrive("root");
- 
-//     std::unordered_set<std::string> usedNames;   // ✅ OUTSIDE loop
- 
-//     for (auto &file : files)
-//     {
-//         bool modified = meta_data_record.isModified(
-//                             file.id,
-//                             file.lastModified,
-//                             file.size);
- 
-//         if (!modified)
-//         {
-//             LOG_INFO("Skipping (not modified): " + file.name);
-//             continue;
-//         }
- 
-//         LOG_INFO("Processing file: " + file.name);
- 
-//         // ✅ Download
-//         std::string localPath = "temp_" + file.name;
- 
-//         LOG_DEBUG("Downloading file: " + file.name +
-//                   " | Size: " + std::to_string(file.size));
- 
-//         if (!src.downloadFile(file.downloadURL, localPath, file.size))
-//         {
-//             LOG_ERROR("Download failed: " + file.name);
-//             continue;
-//         }
- 
-//         // ✅ Generate duplicate-safe name
-//         std::string dupName = generateDuplicateName(file.name, usedNames);
- 
-//         LOG_INFO("Uploading file: " + file.name +
-//                  " as blob: " + dupName);
- 
-//         UploadStatus status = dest.uploadInBlob(dupName, localPath);
- 
-//         if (status == UploadStatus::SUCCESS)
-//         {
-//             meta_data_record.update(file.id,file.lastModified,
-//                                     file.size,
-//                                     file.name,
-//                                     dupName);
- 
-//             LOG_INFO("Upload successful: " + file.name +
-//                      " -> blob: " + dupName);
-//         }
-//         else if (status == UploadStatus::AUTH_ERROR)
-//         {
-//             LOG_ERROR("Upload failed (AUTH_ERROR): " + file.name);
-//             LOG_ERROR("Reason: Token expired / permission issue");
-//             continue;
-//         }
-//         else if (status == UploadStatus::CLIENT_ERROR)
-//         {
-//             LOG_ERROR("Upload failed (CLIENT_ERROR): " + file.name);
-//             LOG_ERROR("Reason: Bad request / invalid file");
-//             continue;
-//         }
-//         else
-//         {
-//             LOG_WARN("Upload failed (SERVER/NETWORK): " + file.name);
-//             continue;
-//         }
-//     }
-//     meta_data_record.saveFile("metadata.json");
-//     LOG_INFO("Meta data saved and BackupEngine completed");
-// }
-
-
 void BackupEngine::start()
 {
    LOG_INFO("BackupEngine started");
    meta_data_record.loadFile("metadata.json");
-   //Seed usedNames from ALL previously persisted blob names
-   // This prevents cross-session collisions
+   
    unordered_set<string> usedNames = meta_data_record.getUsedBlobNames();
    LOG_INFO("Loaded " + to_string(usedNames.size()) + " existing blob names from metadata");
+
    LOG_INFO("Fetching files from OneDrive");
    auto files = src.listFilesRecursivefromOneDrive("root");
-
    if (files.empty()) {
        LOG_ERROR("No files returned from OneDrive — token may be invalid or expired");
-       LOG_ERROR("Generate a new token from: https://developer.microsoft.com/en-us/graph/graph-explorer");
        return;
    }
    for (auto& file : files)
@@ -114,20 +31,21 @@ void BackupEngine::start()
        if (!modified) {
            LOG_INFO("Skipping (not modified): " + file.name);
            continue;
-       }
-       LOG_INFO("Processing file: " + file.name);
-       string localPath = "temp_" + file.name;
-       LOG_DEBUG("Downloading: " + file.name + " | Size: " + std::to_string(file.size));
-       if (!src.downloadFile(file.downloadURL, localPath, file.size)) {
+        }
+    
+        LOG_INFO("Processing file: " + file.name);
+        string localPath = "temp_" + file.name;
+        LOG_DEBUG("Downloading: " + file.name + " | Size: " + std::to_string(file.size));
+        if (!src.downloadFile(file.downloadURL, localPath, file.size)) {
            LOG_ERROR("Download failed: " + file.name);
            continue;
-       }
+        }
 
-       //Reuse the same blob name if this file was backed up before (it's a modified re-upload)
-       string existingBlob = meta_data_record.getExistingBlobName(file.id);
-       string dupName ;
-      if (!existingBlob.empty()) {
-           // File existed before — overwrite the same blob (it's the same logical file, just updated)
+        //Reuse the same blob name if this file was backed up before
+        string existingBlob = meta_data_record.getExistingBlobName(file.id);
+        string dupName ;
+        if (!existingBlob.empty()) {
+           // File existed before..overwrite the same blob
            dupName = existingBlob;
            LOG_INFO("Re-uploading modified file : " + file.name +"to existing Blob: " + dupName);
         } 
@@ -136,13 +54,12 @@ void BackupEngine::start()
            usedNames.insert(dupName);
            if (dupName != file.name) 
            {
-            LOG_WARN("Duplicate name detected! '" + file.name +"' already exists -> renamed to: '" + dupName + "'");
+               LOG_INFO("Duplicate name detected! '" + file.name +"' already exists -> renamed to: '" + dupName + "'");
            } 
            else 
            {
                LOG_INFO("New file, assigned blob name: " + dupName);
             }
-          // LOG_INFO("New file, assigned blob name: " + dupName);
        }
        UploadStatus status = dest.uploadInBlob(dupName, localPath);
        if (status == UploadStatus::SUCCESS) {
