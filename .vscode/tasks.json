@@ -1,0 +1,31 @@
+{
+ "version": "2.0.0",
+ "tasks": [
+   {
+     "label": "build-project",
+     "type": "shell",
+     "command": "D:/Downloads/mingw64/bin/g++.exe",
+     "args": [
+       "-std=c++17",
+       "main.cpp",
+       "src/azureBlob.cpp",
+       "src/backupEngine.cpp",
+       "src/metaDataStore.cpp",
+       "src/source.cpp",
+       "-I", "include",
+       "-I", "D:/Downloads/curl/include",
+       "-L", "D:/Downloads/curl/lib",
+       "-lcurl",
+       "-o", "app.exe"
+     ],
+     "options": {
+       "cwd": "${workspaceFolder}"
+     },
+     "problemMatcher": ["$gcc"],
+     "group": {
+       "kind": "build",
+       "isDefault": true
+     }
+   }
+ ]
+}

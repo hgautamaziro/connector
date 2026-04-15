@@ -1,0 +1,9 @@
+build/
+*.zip
+*.exe
+CMakeFiles/
+CMakeCache.txt
+temp_*
+metadata.json
+
+vcpkg/
