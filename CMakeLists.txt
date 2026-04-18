@@ -28,5 +28,4 @@ set(SOURCES
 find_package(CURL REQUIRED)
 # Executable
 add_executable(app ${SOURCES})
-
 target_link_libraries(app CURL::libcurl)

@@ -44,8 +44,7 @@ void BackupEngine::start()
         //Reuse the same blob name if this file was backed up before
         string existingBlob = meta_data_record.getExistingBlobName(file.id);
         string dupName ;
-        if (!existingBlob.empty()) {
-           // File existed before..overwrite the same blob
+        if (!existingBlob.empty()) {  // File existed before..overwrite the same blob
            dupName = existingBlob;
            LOG_INFO("Re-uploading modified file : " + file.name +"to existing Blob: " + dupName);
         } 

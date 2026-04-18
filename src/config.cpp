@@ -5,7 +5,6 @@
 using namespace std;
 using json = nlohmann::json;
 
-
 bool ConfigLoader::load(const string& filePath, AppConfig& config)
 {
    LOG_INFO("Loading config from: " + filePath);

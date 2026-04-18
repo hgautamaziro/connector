@@ -78,11 +78,8 @@ bool metaDataStore::saveFile(const std::string& file)
             LOG_ERROR("Failed to write data to file: " + file);
             return false;
         }
- 
         out_source.close();
- 
         LOG_INFO("Metadata saved successfully");
- 
         return true;
     }
     catch (const std::exception& e) {

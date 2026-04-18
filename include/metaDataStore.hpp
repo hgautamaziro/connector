@@ -12,28 +12,15 @@ struct backUp{
 	size_t size;
 };
 
-
-//load and save operates on the local metadata file that track the previously backedup files
-// Incremental back up by comparing the last modified timestamp
 class metaDataStore{
-
 	public:
-	bool loadFile(const string& file); // read the local json file and update the record_data map 
+	bool loadFile(const string& file);
 	bool saveFile(const string& file);
 	bool isModified(const string& id, const string& lastModified, size_t size);
 	void update(const string& id,const string& lastModified, size_t size,const string& originalName, const string& dupName);
-	
-	//return all blob names already used in the previous session
-	unordered_set<string> getUsedBlobNames() const;
-	
-	//returns the existing blob name for File ID 
-	string getExistingBlobName(const string& id) const;
+	unordered_set<string> getUsedBlobNames() const;      //return all blob names already used in the previous session
+	string getExistingBlobName(const string& id) const;  //returns the existing blob name for File ID 
 
 	private:
 	std::unordered_map<std::string, backUp> record_data;
-	//  key(file ID)(string )   value (backup)
-	//
-	//   file1                  {lastModified,size}
-	//   file2                  {lastModified, size}
-	
 };

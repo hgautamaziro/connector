@@ -11,20 +11,21 @@ int main(){
         AppConfig config;
         if (!ConfigLoader::load("config.json", config)) {
            LOG_ERROR("Failed to load config — exiting");
-           return -1;
+           return 1;
         }
-
+       LOG_DEBUG("Initializing BackupEngine");
        BackupEngine engine(config.token, config.sasUrl);
+       LOG_INFO("Starting backup engine");
        engine.start();
        LOG_INFO("Backup process completed successfully");
     }
     catch (const std::exception& e) {
         LOG_ERROR("Unhandled exception: " + std::string(e.what()));
-        return -1;
+        return 1;
     }
     catch (...) {
         LOG_ERROR("Unknown error occurred");
-        return -1;
+        return 1;
     }
     LOG_INFO("Application exiting");
     return 0;
