@@ -15,7 +15,7 @@ size_t writeCallback(void* contents, size_t size,
                      size_t nmemb, string* output)
 {
     size_t total = size * nmemb;
-    LOG_DEBUG("writeCallback received bytes: " + std::to_string(total));
+    LOG_DEBUG("writeCallback received bytes: " + to_string(total));
  
     output->append((char*)contents, total);
     return total;
@@ -35,20 +35,18 @@ source::source(const string& t) : token(t)
     LOG_INFO("Source initialized");
 }
 
-bool isAPIResponseValid(const json& j, const std::string& response)
+bool isAPIResponseValid(const json& j, const string& response)
 {
    if (response.empty()) {
        LOG_ERROR("Empty response from API");
        return false;
    }
    if (j.contains("error")) {
-       std::string code    = j["error"].value("code", "unknown");
-       std::string message = j["error"].value("message", "unknown");
+       string code    = j["error"].value("code", "unknown");
+       string message = j["error"].value("message", "unknown");
        LOG_ERROR("API error code: " + code);
        LOG_ERROR("API error message: " + message);
-       if (code == "InvalidAuthenticationToken" ||
-           code == "tokenExpired"              ||
-           code == "unauthenticated") {
+       if (code == "InvalidAuthenticationToken" || code == "tokenExpired" || code == "unauthenticated") {
            LOG_ERROR("TOKEN IS INVALID OR EXPIRED — stopping execution");
        }
        return false;
@@ -61,11 +59,11 @@ bool isAPIResponseValid(const json& j, const std::string& response)
    return true;
 }
  
-std::string callAPI(const std::string& url, const std::string& token)
+string callAPI(const string& url, const string& token)
 {
     LOG_INFO("Calling API: " + url);
     CURL* curl = curl_easy_init();
-    std::string response;
+    string response;
     if (!curl) {
         LOG_ERROR("CURL init failed");
         return "";
@@ -84,9 +82,9 @@ std::string callAPI(const std::string& url, const std::string& token)
     CURLcode res = curl_easy_perform(curl);
  
     if (res != CURLE_OK) {
-        LOG_ERROR("CURL failed: " + std::string(curl_easy_strerror(res)));
+        LOG_ERROR("CURL failed: " + string(curl_easy_strerror(res)));
     } else {
-        LOG_INFO("API call successful, response size: " + std::to_string(response.size()));
+        LOG_INFO("API call successful, response size: " + to_string(response.size()));
     }
  
     curl_easy_cleanup(curl);
@@ -104,7 +102,7 @@ vector<fileInfo> source::listFilesRecursivefromOneDrive(string folderId,  string
         url = "https://graph.microsoft.com/v1.0/me/drive/items/" + folderId + "/children";
     }
  
-    std::string response = callAPI(url, token);
+    string response = callAPI(url, token);
     json j;
  
     try {
@@ -134,7 +132,7 @@ vector<fileInfo> source::listFilesRecursivefromOneDrive(string folderId,  string
             LOG_INFO("Folder: " + subPath + " | ID: " + folderId);
 
             auto subFiles = listFilesRecursivefromOneDrive(folderId, subPath);
-            LOG_INFO("Files inside '" + folderName + "' = " + std::to_string(subFiles.size()));
+            LOG_INFO("Files inside '" + folderName + "' = " + to_string(subFiles.size()));
             files.insert(files.end(), subFiles.begin(), subFiles.end());
         }
         else 
@@ -150,7 +148,7 @@ vector<fileInfo> source::listFilesRecursivefromOneDrive(string folderId,  string
             f.downloadURL = item["@microsoft.graph.downloadUrl"];
             }
             else {
-                f.downloadURL = "https://graph.microsoft.com/v1.0/me/drive/items/" + std::string(item["id"]) + "/content";
+                f.downloadURL = "https://graph.microsoft.com/v1.0/me/drive/items/" + string(item["id"]) + "/content";
             }
             LOG_INFO("File found: " + f.folderPath + "/" + f.name + " | Size: " + to_string(f.size));
             files.push_back(f);
@@ -159,7 +157,7 @@ vector<fileInfo> source::listFilesRecursivefromOneDrive(string folderId,  string
     return files;
 }
 
-bool source::downloadFile(const std::string& downloadUrl, string& localPath, size_t expectedSize)
+bool source::downloadFile(const string& downloadUrl, string& localPath, size_t expectedSize)
 {
     LOG_INFO("Starting download: " + localPath);
     return retryOperation([&]() {
@@ -169,7 +167,7 @@ bool source::downloadFile(const std::string& downloadUrl, string& localPath, siz
             return true;
         }
  
-        std::ofstream file(localPath, std::ios::binary);
+        ofstream file(localPath, ios::binary);
         if (!file.is_open()) {
             LOG_ERROR("Failed to open file: " + localPath);
             curl_easy_cleanup(curl);
@@ -195,12 +193,12 @@ bool source::downloadFile(const std::string& downloadUrl, string& localPath, siz
  
         file.close();
         curl_easy_cleanup(curl);
-        LOG_INFO("HTTP Code: " + std::to_string(http_code) + " | CURL: " + curl_easy_strerror(res));
+        LOG_INFO("HTTP Code: " + to_string(http_code) + " | CURL: " + curl_easy_strerror(res));
  
         // Verify size
-        std::ifstream check(localPath, std::ios::binary | std::ios::ate);
+        ifstream check(localPath, ios::binary | ios::ate);
         size_t actualSize = check.tellg();
-        LOG_INFO("Downloaded size: " + std::to_string(actualSize) + " Expected: " + std::to_string(expectedSize));
+        LOG_INFO("Downloaded size: " + to_string(actualSize) + " Expected: " + to_string(expectedSize));
  
         if (res == CURLE_OK && http_code == 200 && actualSize == expectedSize) {
             LOG_INFO("Download successful: " + localPath);
@@ -223,7 +221,7 @@ bool source::verifyFileUnchanged(const string& fileId,const string& lastModified
    json j;
    try {
        j = json::parse(response);
-   } catch (const std::exception& e) {
+   } catch (const exception& e) {
        LOG_WARN("JSON parse failed during re-verify: " + string(e.what()));
        return true;
    }

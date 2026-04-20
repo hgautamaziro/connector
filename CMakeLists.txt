@@ -12,6 +12,8 @@ include_directories("D:/Downloads/curl/include")
 # Add executable with correct paths
 #link_directories("D:/Downloads/curl/lib")
 
+add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX)
+
 # Source files
 set(SOURCES
    main.cpp
