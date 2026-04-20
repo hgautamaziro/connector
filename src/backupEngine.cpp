@@ -1,6 +1,7 @@
 #include <iostream>
 #include<unordered_set>
 #include <string>
+#include <filesystem>
 #include "backupEngine.hpp"
 #include "fileInfo.hpp"
 #include "azureBlob.hpp"
@@ -20,7 +21,7 @@ void BackupEngine::start()
    LOG_INFO("Loaded " + to_string(usedNames.size()) + " existing blob names from metadata");
 
    LOG_INFO("Fetching files from OneDrive");
-   auto files = src.listFilesRecursivefromOneDrive("root");
+   auto files = src.listFilesRecursivefromOneDrive("root","");
    if (files.empty()) {
        LOG_ERROR("No files returned from OneDrive — token may be invalid or expired");
        return;
@@ -33,10 +34,18 @@ void BackupEngine::start()
         }
         LOG_INFO("Processing file: " + file.name );
         string localPath = "temp_" + file.id;
-        LOG_DEBUG("Downloading: " + file.name + " | Size: " + std::to_string(file.size));
+        LOG_DEBUG("Downloading: " + file.name + " | Size: " + to_string(file.size));
         if (!src.downloadFile(file.downloadURL, localPath, file.size)) {
            LOG_ERROR("Download failed: " + file.name);
            continue;
+        }
+
+        // check for verify file hasn't changed since listing
+        if (!src.verifyFileUnchanged(file.id, file.lastModified, file.size)) {
+            LOG_WARN("File changed in btwn: " + file.name + " — skipping");
+            if (filesystem::exists(localPath))
+            std::filesystem::remove(localPath);
+            continue;
         }
 
         //Reuse the same blob name if this file was backed up before
@@ -47,7 +56,7 @@ void BackupEngine::start()
            LOG_INFO("Re-uploading modified file : " + file.name +"to existing Blob: " + dupName);
         } 
         else {
-           dupName = generateDuplicateName(file.name, usedNames);
+           dupName = generateDuplicateName(file.name, file.folderPath, usedNames);
            usedNames.insert(dupName);
            if (dupName != file.name) 
            {

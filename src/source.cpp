@@ -1,5 +1,4 @@
 #include "source.hpp"
-#include <curl/curl.h>
 #include <fileInfo.hpp>
 #include "logger.hpp"
 #include "retrylogic.hpp"
@@ -8,12 +7,10 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <curl/curl.h>
 using namespace std;
 
 using json = nlohmann::json;
- 
-// ================= CALLBACKS =================
- 
 size_t writeCallback(void* contents, size_t size,
                      size_t nmemb, string* output)
 {
@@ -30,6 +27,7 @@ size_t fileWriteCallback(void* ptr, size_t size, size_t nmemb, void* userdata)
     DownloadContext* ctx = static_cast<DownloadContext*>(userdata);
     ctx->file->write((char*)ptr, total);
     ctx->totalDownloaded += total;
+    return total;
 }
  
 source::source(const string& t) : token(t)
@@ -96,12 +94,10 @@ std::string callAPI(const std::string& url, const std::string& token)
     return response;
 }
  
-// ================= LIST FILES =================
- 
-std::vector<fileInfo> source::listFilesRecursivefromOneDrive(std::string folderId, std:: string parentPath)
+vector<fileInfo> source::listFilesRecursivefromOneDrive(string folderId,  string parentPath)
 {
-    std::vector<fileInfo> files;
-    std::string url;
+    vector<fileInfo> files;
+    string url;
     if (folderId == "root") {
         url = "https://graph.microsoft.com/v1.0/me/drive/root/children";
     } else {
@@ -113,8 +109,8 @@ std::vector<fileInfo> source::listFilesRecursivefromOneDrive(std::string folderI
  
     try {
         j = json::parse(response);
-    } catch (const std::exception& e) {
-        LOG_ERROR("JSON parse failed: " + std::string(e.what()));
+    } catch (const exception& e) {
+        LOG_ERROR("JSON parse failed: " + string(e.what()));
         return files;
     }
 
@@ -131,26 +127,32 @@ std::vector<fileInfo> source::listFilesRecursivefromOneDrive(std::string folderI
 
     for (auto& item : j["value"]) {
         if (item.contains("folder")) {
-            std::string folderName = item["name"];
+            string folderName = item["name"];
             string folderId = item["id"];
-            LOG_INFO("Entering folder: '" + folderName + "' (ID: " + folderId + ")");
-            auto subFiles = listFilesRecursivefromOneDrive(item["id"]);
+            string subPath = parentPath.empty()? folderName : parentPath + "/" + folderName;
+
+            LOG_INFO("Folder: " + subPath + " | ID: " + folderId);
+
+            auto subFiles = listFilesRecursivefromOneDrive(folderId, subPath);
             LOG_INFO("Files inside '" + folderName + "' = " + std::to_string(subFiles.size()));
             files.insert(files.end(), subFiles.begin(), subFiles.end());
         }
-        else {
+        else 
+        {
             fileInfo f;
-            f.id = item["id"];
-            f.name = item["name"];
-            f.size = item.value("size", 0);
+            f.id           = item["id"];
+            f.name         = item["name"];
+            f.folderPath   = parentPath;
+            f.size         = item.value("size", 0);
             f.lastModified = item.value("lastModifiedDateTime", "");
+
             if (item.contains("@microsoft.graph.downloadUrl")) {
             f.downloadURL = item["@microsoft.graph.downloadUrl"];
             }
             else {
                 f.downloadURL = "https://graph.microsoft.com/v1.0/me/drive/items/" + std::string(item["id"]) + "/content";
             }
-            LOG_INFO("File found: " + f.name + " | Size: " + to_string(f.size));
+            LOG_INFO("File found: " + f.folderPath + "/" + f.name + " | Size: " + to_string(f.size));
             files.push_back(f);
         }
     }

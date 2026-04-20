@@ -3,4 +3,4 @@
 #include <unordered_set>
 using namespace std;
 
-string generateDuplicateName(const string& filename, unordered_set<std::string>& existingNames);
+string generateDuplicateName(const string& filename, const string& folderPath, unordered_set<std::string>& existingNames);
