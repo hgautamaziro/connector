@@ -30,8 +30,6 @@ size_t fileWriteCallback(void* ptr, size_t size, size_t nmemb, void* userdata)
     DownloadContext* ctx = static_cast<DownloadContext*>(userdata);
     ctx->file->write((char*)ptr, total);
     ctx->totalDownloaded += total;
-    //LOG_DEBUG("Downloaded: " + std::to_string(ctx->totalDownloaded) + " / " + std::to_string(ctx->expectedSize) + " bytes");
-    return total;
 }
  
 source::source(const string& t) : token(t)
@@ -68,10 +66,8 @@ bool isAPIResponseValid(const json& j, const std::string& response)
 std::string callAPI(const std::string& url, const std::string& token)
 {
     LOG_INFO("Calling API: " + url);
- 
     CURL* curl = curl_easy_init();
     std::string response;
- 
     if (!curl) {
         LOG_ERROR("CURL init failed");
         return "";
@@ -87,7 +83,6 @@ std::string callAPI(const std::string& url, const std::string& token)
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
     curl_easy_setopt(curl,CURLOPT_FOLLOWLOCATION, 1L);
- 
     CURLcode res = curl_easy_perform(curl);
  
     if (res != CURLE_OK) {
@@ -98,17 +93,15 @@ std::string callAPI(const std::string& url, const std::string& token)
  
     curl_easy_cleanup(curl);
     curl_slist_free_all(headers);
- 
     return response;
 }
  
 // ================= LIST FILES =================
  
-std::vector<fileInfo> source::listFilesRecursivefromOneDrive(std::string folderId)
+std::vector<fileInfo> source::listFilesRecursivefromOneDrive(std::string folderId, std:: string parentPath)
 {
     std::vector<fileInfo> files;
     std::string url;
- 
     if (folderId == "root") {
         url = "https://graph.microsoft.com/v1.0/me/drive/root/children";
     } else {
@@ -130,24 +123,19 @@ std::vector<fileInfo> source::listFilesRecursivefromOneDrive(std::string folderI
        return files;   // returns empty — BackupEngine will process 0 files
    }
    LOG_INFO("API response valid, processing files");
- 
     if (!j.contains("value")) {
         LOG_ERROR("Invalid API response structure");
         LOG_ERROR("Raw API response :" + response );
         return files;
     }
- 
+
     for (auto& item : j["value"]) {
- 
         if (item.contains("folder")) {
- 
             std::string folderName = item["name"];
             string folderId = item["id"];
             LOG_INFO("Entering folder: '" + folderName + "' (ID: " + folderId + ")");
             auto subFiles = listFilesRecursivefromOneDrive(item["id"]);
-            LOG_INFO("Files inside '" + folderName +
-                     "' = " + std::to_string(subFiles.size()));
- 
+            LOG_INFO("Files inside '" + folderName + "' = " + std::to_string(subFiles.size()));
             files.insert(files.end(), subFiles.begin(), subFiles.end());
         }
         else {
@@ -156,31 +144,23 @@ std::vector<fileInfo> source::listFilesRecursivefromOneDrive(std::string folderI
             f.name = item["name"];
             f.size = item.value("size", 0);
             f.lastModified = item.value("lastModifiedDateTime", "");
-
             if (item.contains("@microsoft.graph.downloadUrl")) {
             f.downloadURL = item["@microsoft.graph.downloadUrl"];
             }
-            else {//USE GRAPH CONTENT API (FIX)
+            else {
                 f.downloadURL = "https://graph.microsoft.com/v1.0/me/drive/items/" + std::string(item["id"]) + "/content";
             }
- 
-            LOG_INFO("File found: " + f.name +
-                     " | Size: " + std::to_string(f.size));
- 
+            LOG_INFO("File found: " + f.name + " | Size: " + to_string(f.size));
             files.push_back(f);
         }
     }
     return files;
 }
- 
-// ================= DOWNLOAD =================
-bool source::downloadFile(const std::string& downloadUrl,
-                         std::string& localPath,
-                         size_t expectedSize)
+
+bool source::downloadFile(const std::string& downloadUrl, string& localPath, size_t expectedSize)
 {
     LOG_INFO("Starting download: " + localPath);
     return retryOperation([&]() {
- 
         CURL* curl = curl_easy_init();
         if (!curl) {
             LOG_ERROR("CURL init failed");
@@ -201,41 +181,63 @@ bool source::downloadFile(const std::string& downloadUrl,
         curl_easy_setopt(curl, CURLOPT_URL, downloadUrl.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fileWriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ctx);
- 
-        // Important stability options
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
         curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
- 
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 0L);
         curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
         curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 60L);
- 
         CURLcode res = curl_easy_perform(curl);
- 
         long http_code = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
  
         file.close();
         curl_easy_cleanup(curl);
- 
-        LOG_INFO("HTTP Code: " + std::to_string(http_code) +
-                 " | CURL: " + curl_easy_strerror(res));
+        LOG_INFO("HTTP Code: " + std::to_string(http_code) + " | CURL: " + curl_easy_strerror(res));
  
         // Verify size
         std::ifstream check(localPath, std::ios::binary | std::ios::ate);
         size_t actualSize = check.tellg();
- 
-        LOG_INFO("Downloaded size: " + std::to_string(actualSize) +
-                 " Expected: " + std::to_string(expectedSize));
+        LOG_INFO("Downloaded size: " + std::to_string(actualSize) + " Expected: " + std::to_string(expectedSize));
  
         if (res == CURLE_OK && http_code == 200 && actualSize == expectedSize) {
             LOG_INFO("Download successful: " + localPath);
             return true;
         }
- 
         LOG_WARN("Retrying download...");
         return false;
- 
     }, NO_OF_RETRIES);
+}
+
+bool source::verifyFileUnchanged(const string& fileId,const string& lastModified, size_t size)
+{
+   LOG_INFO("Verifying file unchanged after download: " + fileId);
+   string url = "https://graph.microsoft.com/v1.0/me/drive/items/" + fileId + "?$select=id,name,size,lastModifiedDateTime";
+   string response = callAPI(url, token);
+   if (response.empty()) {
+       LOG_WARN("Could not re-verify file metadata — proceeding with caution");
+       return true;
+   }
+   json j;
+   try {
+       j = json::parse(response);
+   } catch (const std::exception& e) {
+       LOG_WARN("JSON parse failed during re-verify: " + string(e.what()));
+       return true;
+   }
+   if (j.contains("error")) {
+       LOG_WARN("API error during re-verify — proceeding: " + j["error"].value("message", "unknown"));
+       return true;
+   }
+   string freshModified = j.value("lastModifiedDateTime", "");
+   size_t freshSize     = j.value("size", (size_t)0);
+   if (freshModified != lastModified || freshSize != size) {
+       LOG_WARN("File changed during backup: " + fileId);
+       LOG_WARN("Earlier  → lastModified=" + lastModified +" size=" + to_string(size));
+       LOG_WARN("latest  → lastModified=" + freshModified +" size=" + to_string(freshSize));
+       LOG_WARN("Skipping — will be picked up correctly next run");
+       return false;
+   }
+   LOG_INFO("File verified unchanged: " + fileId);
+   return true;
 }

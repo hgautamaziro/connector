@@ -13,8 +13,9 @@ struct DownloadContext {
 class source {
 public:
     source(const std::string& token);
-    std::vector<fileInfo> listFilesRecursivefromOneDrive(std::string folderId);
+    std::vector<fileInfo> listFilesRecursivefromOneDrive(std::string folderId, std:: string parentPath);
     bool downloadFile(const std::string& id, std::string& data, size_t size);
+    bool verifyFileUnchanged(const std::string& fileId,const std::string& lastModified, size_t size);
  
 private:
     std::string token;

@@ -31,8 +31,8 @@ void BackupEngine::start()
            LOG_INFO("Skipping (not modified): " + file.name);
            continue;
         }
-        LOG_INFO("Processing file: " + file.name);
-        string localPath = "temp_" + file.name;
+        LOG_INFO("Processing file: " + file.name );
+        string localPath = "temp_" + file.id;
         LOG_DEBUG("Downloading: " + file.name + " | Size: " + std::to_string(file.size));
         if (!src.downloadFile(file.downloadURL, localPath, file.size)) {
            LOG_ERROR("Download failed: " + file.name);
