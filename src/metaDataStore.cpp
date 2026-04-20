@@ -5,7 +5,6 @@
 #include "fileInfo.hpp"
 #include "metaDataStore.hpp"
 #include "logger.hpp"
-
 using namespace std;
 using json = nlohmann::json;
  
@@ -38,15 +37,9 @@ bool metaDataStore::loadFile(const std::string& file)
         rec.dupName = val.value("dupName", "");
  
         record_data[id] = rec;
-        LOG_DEBUG("Stored record -> lastModified: " +
-          val["lastModified"].get<string>() +
-          ", size: " + std::to_string(val["size"].get<size_t>()) +
-          ", originalName: " +
-          val.value("originalName", "") +
-          ", dupName: " +
-          val.value("dupName", ""));
+        LOG_DEBUG("Stored record -> lastModified: " + val["lastModified"].get<string>() + ", size: " + to_string(val["size"].get<size_t>()) +
+          ", originalName: " + val.value("originalName", "") + ", dupName: " + val.value("dupName", ""));
     }
- 
     LOG_INFO("Metadata loaded successfully");
     return true;
 }
@@ -60,9 +53,7 @@ bool metaDataStore::saveFile(const std::string& file)
             return false;
         }
         json json_file;
- 
         for (auto& [id, rec] : record_data) {
- 
             LOG_DEBUG("Writing record : " + rec.originalName + "(blob: " + rec.dupName + ")");
             json_file[id] = {
                 {"lastModified", rec.lastModified},
@@ -71,9 +62,7 @@ bool metaDataStore::saveFile(const std::string& file)
                 {"dupName",rec.dupName}
             };
         }
- 
         out_source << json_file.dump(4);
- 
         if (!out_source.good()) {
             LOG_ERROR("Failed to write data to file: " + file);
             return false;
@@ -112,7 +101,6 @@ void metaDataStore::update(const std::string& id,const std::string& lastModified
     rec.originalName = originalName;
     rec.dupName = dupName;
     record_data[id] = rec;
-   
 }
 
 std::unordered_set<std::string> metaDataStore::getUsedBlobNames() const

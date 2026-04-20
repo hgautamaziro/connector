@@ -47,7 +47,6 @@ UploadStatus azureBlob::uploadInBlob(const string& filename,const string& localP
         }
  
         LOG_DEBUG("File opened successfully");
- 
         fseek(file, 0, SEEK_END);
         curl_off_t fileSize = ftell(file);
         fseek(file, 0, SEEK_SET);
@@ -76,17 +75,14 @@ UploadStatus azureBlob::uploadInBlob(const string& filename,const string& localP
         curl_easy_cleanup(curl);
         curl_slist_free_all(headers);
  
-        //Success
         if (res == CURLE_OK && (http_code == 200 || http_code == 201)) {
             LOG_INFO("Upload successful: " + filename);
             finalStatus = UploadStatus::SUCCESS;
             return true;
         }
  
-        //Client error
         if (http_code >= 400 && http_code < 500) {
             LOG_WARN("Client error occurred. HTTP Code: " +to_string(http_code));
- 
             if (http_code == 403)
                 finalStatus = UploadStatus::AUTH_ERROR;
             else
@@ -94,7 +90,7 @@ UploadStatus azureBlob::uploadInBlob(const string& filename,const string& localP
  
             return true;
         }
-        // Retry case
+
         LOG_WARN("Retrying upload due to server/network issue");
         return false;
     }, NO_OF_RETRIES);

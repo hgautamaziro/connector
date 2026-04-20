@@ -13,7 +13,7 @@ int main(){
            LOG_ERROR("Failed to load config — exiting");
            return 1;
         }
-       LOG_DEBUG("Initializing BackupEngine");
+
        BackupEngine engine(config.token, config.sasUrl);
        LOG_INFO("Starting backup engine");
        engine.start();

@@ -25,14 +25,12 @@ void BackupEngine::start()
        LOG_ERROR("No files returned from OneDrive — token may be invalid or expired");
        return;
    }
-   for (auto& file : files)
-   {
+   for (auto& file : files){
        bool modified = meta_data_record.isModified(file.id, file.lastModified, file.size);
        if (!modified) {
            LOG_INFO("Skipping (not modified): " + file.name);
            continue;
         }
-    
         LOG_INFO("Processing file: " + file.name);
         string localPath = "temp_" + file.name;
         LOG_DEBUG("Downloading: " + file.name + " | Size: " + std::to_string(file.size));
